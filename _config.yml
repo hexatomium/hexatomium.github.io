@@ -2,10 +2,8 @@ title: Dinky theme
 
 description: Hola.
 
-show_downloads: true
-
 google_analytics:
 
 theme: jekyll-theme-modernist
 
-baseurl: https://hexatomium.github.io/
+baseurl: https://hexatomium.github.io/hexatomium.github.io/
