@@ -5,7 +5,7 @@
 # Name of your site (displayed in the header)
 name: Your Name
 xxtheme: jekyll-theme-dinky
-remote-theme: mmistakes/minimal-mistakes
+remote_theme: mmistakes/minimal-mistakes
 
 # Short bio or description (displayed in the header)
 description: Web Developer from Somewhere
