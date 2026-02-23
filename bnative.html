@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Offline Addr Generator</title>
+
+<script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.js"
+        integrity="sha256-S8QC4az8SCObd1csTxF2gmHyQFW/9LB7aWjR5K1S3EY="
+        crossorigin="anonymous"></script>
+
+<style>
+:root {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --accent: #3b82f6;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
+
+body {
+  margin: 0;
+  padding: 40px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  width: 100%;
+  max-width: 720px;
+  background: var(--card);
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+h2 {
+  margin-top: 0;
+  font-weight: 600;
+}
+
+.warn {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  padding: 12px;
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+label {
+  font-size: 13px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 6px;
+}
+
+textarea, input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: var(--text);
+  font-family: monospace;
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+
+textarea:focus, input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
+}
+
+button {
+  background: var(--accent);
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 24px;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+.output {
+  background: #0b1220;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2>Offline Addr Generator</h2>
+
+<div class="warn">
+⚠️ AIRGAP ONLY. Never use large funds. Never reuse passphrases.
+</div>
+
+<label>Enter Passphrase OR 64-char Raw Hex Private Key:</label>
+<textarea id="inputData" rows="3">correct horse battery staple</textarea>
+
+<button onclick="derive()">Derive Keys</button>
+
+<label>Private Key (Hex):</label>
+<input id="privHex" class="output" readonly>
+
+<label>Private Key (WIFC):</label>
+<input id="privWif" class="output" readonly>
+
+<label>Legacy Address (P2PKH - starts with 1):</label>
+<input id="addrLegacy" class="output" readonly>
+
+<label>Native SegWit (P2WPKH - bc1):</label>
+<input id="addrSegwit" class="output" readonly>
+
+</div>
+
+<script>
+
+function sha256Hex(text) {
+    const buffer = new TextEncoder().encode(text);
+    return crypto.subtle.digest("SHA-256", buffer).then(hash => {
+        return Array.from(new Uint8Array(hash))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    });
+}
+
+function isValidHex(str) {
+    return /^[0-9a-fA-F]{64}$/.test(str);
+}
+
+function generateRandomHex64() {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+async function derive() {
+
+    const bitcoin = window.bitcoinjs;
+    const network = bitcoin.networks.bitcoin;
+
+    let input = document.getElementById("inputData").value.trim();
+    if (!input) return alert("Input required");
+
+    let privHex;
+
+    if (isValidHex(input)) {
+        privHex = input.toLowerCase();
+    } else {
+        privHex = await sha256Hex(input);
+    }
+
+    const privBuffer = bitcoin.Buffer.from(privHex, 'hex');
+
+    try {
+        const keyPair = bitcoin.ECPair.fromPrivateKey(privBuffer, { compressed: true, network });
+
+        const { address: legacy } = bitcoin.payments.p2pkh({
+            pubkey: keyPair.publicKey,
+            network
+        });
+
+        const { address: segwit } = bitcoin.payments.p2wpkh({
+            pubkey: keyPair.publicKey,
+            network
+        });
+
+        document.getElementById("privHex").value = privHex;
+        document.getElementById("privWif").value = keyPair.toWIF();
+        document.getElementById("addrLegacy").value = legacy;
+        document.getElementById("addrSegwit").value = segwit;
+
+    } catch (e) {
+        alert("Invalid private key derived.");
+    }
+}
+
+// Ctrl+G hotkey → generate strong random 64-char hex and derive
+document.addEventListener("keydown", async function(e) {
+    if (e.ctrlKey && (e.key === "g" || e.key === "G")) {
+        e.preventDefault();
+        const hex = generateRandomHex64();
+        document.getElementById("inputData").value = hex;
+        derive();
+    }
+});
+
+</script>
+</body>
+</html>
